@@ -39,7 +39,7 @@ Contains .gha assemblies and .dll libraries and general purpose .gh definitions 
   
 **bitmaps in CS** - generate, load and save bitmaps from within C# components
   
-** Curl noise.gh** - uses Noises.dll library to compute SimplexNoise and CurlNoise functions  
+**Curl noise.gh** - uses Noises.dll library to compute SimplexNoise and CurlNoise functions  
   
 **Custom material preview.gh**  
 **Custom material preview.3dm**  
