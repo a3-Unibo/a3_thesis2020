@@ -52,36 +52,58 @@ public class Script_Instance : GH_ScriptInstance
   /// Output parameters as ref arguments. You don't have to assign output parameters, 
   /// they will have a default value.
   /// </summary>
-  private void RunScript(List<Point3d> P, Mesh M, double step, bool reset, bool go, ref object Pos, ref object Trails)
+  private void RunScript(List<Point3d> P, Mesh M, double step, bool reset, bool go, ref object Pos, ref object status, ref object Trails)
   {
     
-    if (reset || parts.Count == 0 || P.Count != parts.Count) initParts(P);
+    if (reset || GD == null) GD = new GradientDescent(M, P);
 
     if (go)
     {
-      // updates our Particles (only if they are alive)
+
+      // update live variables
+
+
+      // update System
 
 
       // expiring solution forces the component to update
       Component.ExpireSolution(true);
     }
-    
+
     // extracts positions and trails
 
     Pos = pts;
+    status = pStat;
     Trails = trs;
   }
 
   // <Custom additional code> 
   
   // persistent variables
-  List<Particle> parts = new List<Particle>();
-  List<Point3d> pts = new List<Point3d>();
-  List<Polyline> trs = new List<Polyline>();
+  public GradientDescent GD;
 
-  // initialization function
-  public void initParts(List<Point3d> P)
+  Point3d[] pts;
+  Polyline[] trs;
+  bool[] pStat;
+
+
+  // simulation class
+  public class GradientDescent
   {
+    //fields
+
+    // constructor
+    public GradientDescent(Mesh M, List<Point3d> P)
+    {
+
+    }
+
+    // methods
+    public void Update()
+    {
+
+    }
+
 
   }
 
@@ -94,31 +116,31 @@ public class Script_Instance : GH_ScriptInstance
     // fields
 
 
-
     // constructor (public if we use it from RunScript)
-    public Particle(Point3d pos){
+    public Particle(GradientDescent GraDesc, Point3d pos){
 
     }
 
     // methods
 
-    public void update(Mesh M, double maxSpeed)
+    public void update()
     {
 
     }
 
-    void calcVel(Mesh M, double maxSpeed)
+    void calcVel()
     {
 
     }
 
 
-    void move(Mesh M)
+    void move()
     {
 
     }
 
   }
+
   // </Custom additional code> 
 
   private List<string> __err = new List<string>(); //Do not modify this list directly.
@@ -177,11 +199,12 @@ public class Script_Instance : GH_ScriptInstance
 
     //3. Declare output parameters
       object Pos = null;
+  object status = null;
   object Trails = null;
 
 
     //4. Invoke RunScript
-    RunScript(P, M, step, reset, go, ref Pos, ref Trails);
+    RunScript(P, M, step, reset, go, ref Pos, ref status, ref Trails);
       
     try
     {
@@ -211,30 +234,55 @@ public class Script_Instance : GH_ScriptInstance
       {
         DA.SetData(1, null);
       }
-      if (Trails != null)
+      if (status != null)
       {
-        if (GH_Format.TreatAsCollection(Trails))
+        if (GH_Format.TreatAsCollection(status))
         {
-          IEnumerable __enum_Trails = (IEnumerable)(Trails);
-          DA.SetDataList(2, __enum_Trails);
+          IEnumerable __enum_status = (IEnumerable)(status);
+          DA.SetDataList(2, __enum_status);
         }
         else
         {
-          if (Trails is Grasshopper.Kernel.Data.IGH_DataTree)
+          if (status is Grasshopper.Kernel.Data.IGH_DataTree)
           {
             //merge tree
-            DA.SetDataTree(2, (Grasshopper.Kernel.Data.IGH_DataTree)(Trails));
+            DA.SetDataTree(2, (Grasshopper.Kernel.Data.IGH_DataTree)(status));
           }
           else
           {
             //assign direct
-            DA.SetData(2, Trails);
+            DA.SetData(2, status);
           }
         }
       }
       else
       {
         DA.SetData(2, null);
+      }
+      if (Trails != null)
+      {
+        if (GH_Format.TreatAsCollection(Trails))
+        {
+          IEnumerable __enum_Trails = (IEnumerable)(Trails);
+          DA.SetDataList(3, __enum_Trails);
+        }
+        else
+        {
+          if (Trails is Grasshopper.Kernel.Data.IGH_DataTree)
+          {
+            //merge tree
+            DA.SetDataTree(3, (Grasshopper.Kernel.Data.IGH_DataTree)(Trails));
+          }
+          else
+          {
+            //assign direct
+            DA.SetData(3, Trails);
+          }
+        }
+      }
+      else
+      {
+        DA.SetData(3, null);
       }
 
     }

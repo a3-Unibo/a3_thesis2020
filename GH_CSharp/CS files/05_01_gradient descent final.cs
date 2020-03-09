@@ -10,7 +10,7 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 
-
+using System.Threading.Tasks;
 
 /// <summary>
 /// This class will be instantiated on demand by the Script component.
@@ -52,53 +52,79 @@ public class Script_Instance : GH_ScriptInstance
   /// Output parameters as ref arguments. You don't have to assign output parameters, 
   /// they will have a default value.
   /// </summary>
-  private void RunScript(List<Point3d> P, Mesh M, double step, bool reset, bool go, ref object Pos, ref object Trails)
+  private void RunScript(List<Point3d> P, Mesh M, double step, bool reset, bool go, ref object Pos, ref object status, ref object Trails)
   {
     
-    if (reset || parts.Count == 0 || P.Count != parts.Count) initParts(P);
+    if (reset || GD == null || P.Count != GD.parts.Count) GD = new GradientDescent(M, P);
 
     if (go)
     {
-      // updates our Particles (only if they are alive)
-      foreach(Particle a in parts) if (a.alive) a.update(M, step);
+
+      // update live variables
+      GD.MaxSpeed = step;
+
+
+      // update System
+      GD.Update();
+
 
       // expiring solution forces the component to update
       Component.ExpireSolution(true);
     }
 
     // extracts positions and trails
-    for(int i = 0; i < parts.Count; i++)
+    pts = new Point3d[P.Count];
+    trs = new Polyline[P.Count];
+    pStat = new bool[P.Count];
+    for(int i = 0; i < GD.parts.Count; i++)
     {
-      pts[i] = parts[i].pos;
-      trs[i] = parts[i].trail;
+      pts[i] = GD.parts[i].pos;
+      if(GD.parts[i].trail.IsValid)trs[i] = GD.parts[i].trail;
+      else trs[i] = null;
+      pStat[i] = GD.parts[i].alive;
     }
 
     Pos = pts;
+    status = pStat;
     Trails = trs;
   }
 
   // <Custom additional code> 
   
   // persistent variables
-  List<Particle> parts = new List<Particle>();
-  List<Point3d> pts = new List<Point3d>();
-  List<Polyline> trs = new List<Polyline>();
+  public GradientDescent GD;
 
-  // initialization function
-  public void initParts(List<Point3d> P)
+  Point3d[] pts;
+  Polyline[] trs;
+  bool[] pStat;
+
+
+  // simulation class
+  public class GradientDescent
   {
-    // clears lists
-    parts.Clear();
-    pts.Clear();
-    trs.Clear();
+    public List<Particle> parts;
+    public Mesh M;
+    public double MaxSpeed;
 
-    // initializes lists
-    foreach(Point3d p in P)
+    public GradientDescent(Mesh M, List<Point3d> P)
     {
-      parts.Add(new Particle(p));
-      pts.Add(p);
-      trs.Add(new Polyline());
+      this.M = M;
+      parts = new List<Particle>();
+      foreach(Point3d p in P) parts.Add(new Particle(this, p));
     }
+
+    public void Update()
+    {
+      foreach(Particle pa in parts)
+        pa.update();
+    }
+
+    // update (multithreading)
+    public void UpdatePar()
+    {
+      Parallel.ForEach(parts, pa => {pa.update();});
+    }
+
   }
 
 
@@ -112,31 +138,34 @@ public class Script_Instance : GH_ScriptInstance
     public Vector3d vel;
     public Polyline trail;
     public bool alive;
+    public GradientDescent GraDesc;
 
 
     // constructor (public if we use it from RunScript)
-    public Particle(Point3d pos){
+    public Particle(GradientDescent GraDesc, Point3d pos){
+      this.GraDesc = GraDesc;
       this.pos = pos;
       vel = Vector3d.Zero;
       trail = new Polyline();
-      trail.Add(pos);
+      trail.Add(new Point3d(pos));
+
       alive = true;
     }
 
     // methods
 
-    public void update(Mesh M, double maxSpeed)
+    public void update()
     {
-      calcVel(M, maxSpeed);
-      move(M);
+      calcVel();
+      move();
     }
 
-    void calcVel(Mesh M, double maxSpeed)
+    void calcVel()
     {
       // get closest point to the Mesh
-      MeshPoint mP = M.ClosestMeshPoint(pos, 0.0);
+      MeshPoint mP = GraDesc.M.ClosestMeshPoint(pos, 0.0);
       // evaluate Mesh normal at that point
-      Vector3d mN = M.NormalAt(mP);
+      Vector3d mN = GraDesc.M.NormalAt(mP);
       // find tangent to mesh (perpendicular vector to normal)
       vel = Vector3d.CrossProduct(mN, Vector3d.ZAxis);
       // rotate 90 degrees
@@ -144,15 +173,15 @@ public class Script_Instance : GH_ScriptInstance
       // unitize
       vel.Unitize();
       // set to max speed (step)
-      vel *= maxSpeed;
+      vel *= GraDesc.MaxSpeed;
     }
 
 
-    void move(Mesh M)
+    void move()
     {
       // calculates new position
       Point3d newPos = pos + vel;
-      newPos = M.ClosestPoint(newPos);
+      newPos = GraDesc.M.ClosestPoint(newPos);
 
       // kills particle if it has reached a pit - update if not
       if (Math.Abs(newPos.Z - pos.Z) < 0.01) alive = false;
@@ -164,6 +193,7 @@ public class Script_Instance : GH_ScriptInstance
     }
 
   }
+
   // </Custom additional code> 
 
   private List<string> __err = new List<string>(); //Do not modify this list directly.
@@ -222,11 +252,12 @@ public class Script_Instance : GH_ScriptInstance
 
     //3. Declare output parameters
       object Pos = null;
+  object status = null;
   object Trails = null;
 
 
     //4. Invoke RunScript
-    RunScript(P, M, step, reset, go, ref Pos, ref Trails);
+    RunScript(P, M, step, reset, go, ref Pos, ref status, ref Trails);
       
     try
     {
@@ -256,30 +287,55 @@ public class Script_Instance : GH_ScriptInstance
       {
         DA.SetData(1, null);
       }
-      if (Trails != null)
+      if (status != null)
       {
-        if (GH_Format.TreatAsCollection(Trails))
+        if (GH_Format.TreatAsCollection(status))
         {
-          IEnumerable __enum_Trails = (IEnumerable)(Trails);
-          DA.SetDataList(2, __enum_Trails);
+          IEnumerable __enum_status = (IEnumerable)(status);
+          DA.SetDataList(2, __enum_status);
         }
         else
         {
-          if (Trails is Grasshopper.Kernel.Data.IGH_DataTree)
+          if (status is Grasshopper.Kernel.Data.IGH_DataTree)
           {
             //merge tree
-            DA.SetDataTree(2, (Grasshopper.Kernel.Data.IGH_DataTree)(Trails));
+            DA.SetDataTree(2, (Grasshopper.Kernel.Data.IGH_DataTree)(status));
           }
           else
           {
             //assign direct
-            DA.SetData(2, Trails);
+            DA.SetData(2, status);
           }
         }
       }
       else
       {
         DA.SetData(2, null);
+      }
+      if (Trails != null)
+      {
+        if (GH_Format.TreatAsCollection(Trails))
+        {
+          IEnumerable __enum_Trails = (IEnumerable)(Trails);
+          DA.SetDataList(3, __enum_Trails);
+        }
+        else
+        {
+          if (Trails is Grasshopper.Kernel.Data.IGH_DataTree)
+          {
+            //merge tree
+            DA.SetDataTree(3, (Grasshopper.Kernel.Data.IGH_DataTree)(Trails));
+          }
+          else
+          {
+            //assign direct
+            DA.SetData(3, Trails);
+          }
+        }
+      }
+      else
+      {
+        DA.SetData(3, null);
       }
 
     }

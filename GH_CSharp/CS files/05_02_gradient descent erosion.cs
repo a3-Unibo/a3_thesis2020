@@ -82,7 +82,7 @@ public class Script_Instance : GH_ScriptInstance
     for(int i = 0; i < er.parts.Count; i++)
     {
       pts[i] = er.parts[i].pos;
-      trs[i] = er.parts[i].trail;
+      trs[i] = er.parts[i].trail.IsValid ? er.parts[i].trail : null;
     }
 
     Pos = pts;
@@ -95,8 +95,6 @@ public class Script_Instance : GH_ScriptInstance
   // persistent variables
   Point3d[] pts;
   Polyline[] trs;
-  //Mesh M1;
-  //Point3dList p1;
   ErosionSim er;
 
   public class ErosionSim
@@ -132,11 +130,11 @@ public class Script_Instance : GH_ScriptInstance
     public void update()
     {
       foreach(Particle pa in parts)
-        pa.update();
-      
+        if (pa.alive) pa.update();
+
       for(int i = 0; i < p1.Count; i++)
         M.Vertices.SetVertex(i, p1[i]);
-      
+
       M.RebuildNormals();
     }
 
@@ -176,7 +174,7 @@ public class Script_Instance : GH_ScriptInstance
     public void update()
     {
       calcVel();
-      erode();
+      erode2();
       move();
     }
 
@@ -205,6 +203,20 @@ public class Script_Instance : GH_ScriptInstance
         er.p1[vi] += disp;
       }
     }
+    
+
+    void erode2()
+    {
+      int vi = er.p1.ClosestIndex(pos);
+      int[] vNeigh = er.M.Vertices.GetConnectedVertices(vi);
+      if(er.M.Vertices[vi].DistanceTo(er.Morig.Vertices[vi]) < er.erosionMax)
+      {
+        Vector3d disp = -1 * (Vector3d) er.M.Normals[vi] * er.erosionIndex;
+        er.p1[vi] += disp;
+        for(int i=0; i< vNeigh.Length; i++)
+          er.p1[vNeigh[i]] += disp * 0.25;
+      }
+    }
 
 
     void move()
@@ -214,7 +226,7 @@ public class Script_Instance : GH_ScriptInstance
       newPos = er.M.ClosestPoint(newPos);
 
       // kills particle if it has reached a pit - update if not
-      if (Math.Abs(newPos.Z - pos.Z) < 0.01) alive = false;
+      if (Math.Abs(newPos.Z - pos.Z) < 0.01 || pos.DistanceToSquared(newPos) < er.maxSpeed*0.2) alive = false;
       else
       {
         pos = newPos;
