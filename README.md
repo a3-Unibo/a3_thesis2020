@@ -4,24 +4,28 @@ Codes used in the Thesis sessions 2020.
   
 Please note that this material is a compendium to in-person teaching workshop days, so many implied instructions, premises and cautions given during the dat-to-day development have not been included. - tutor: [Alessio Erioli](https://www.unibo.it/sitoweb/alessio.erioli/)  
   
-Required programs: [Rhinoceros 3D v6](https://www.rhino3d.com) (includes Grasshopper), [Visual Studio Community 2019](https://visualstudio.microsoft.com/vs/) (install **.NET desktop development** workload).
   
 ## Installations
-These are the required installations:
+These are the required installations
 
-### Rhino
+### Programs
+. [Rhinoceros 3D v6](https://www.rhino3d.com) (includes Grasshopper)  
+. [Visual Studio Community 2019](https://visualstudio.microsoft.com/vs/) (install **.NET desktop development** workload)  
+
+### Rhino plugins
 . [topmostviewport](https://www.food4rhino.com/app/topmost-viewport)
   
-### Components
+### Grasshopper Components
 . [Anemone](https://www.food4rhino.com/app/anemone)  
 . [Fattener](https://discourse.mcneel.com/t/skeleton-fattener-mesh-cage-morph/74766) - requires forum registration  
+. [FileToScript2](https://drive.google.com/open?id=1PZIlEkYBvyzUqHkfgsY78s1Z6T_nf6wI) - if you have an older Rhino SR and the .gha is not compatible you will have to compile it from Visual Studio (instructions are included)  
 . [Human](https://www.food4rhino.com/app/human)  
 . [Impala](https://www.food4rhino.com/app/impala)  
 . [Meshedit](https://www.food4rhino.com/app/meshedit)  
 . [MeshTools](https://www.grasshopper3d.com/forum/topics/mesh-pipe) - requires forum registration  
 . [Plankton](https://github.com/meshmash/Plankton) - read the "Using Plankton with Grasshopper" paragraph  
   
-### User Objects
+### Grasshopper User Objects
 froGH WIP - get froGH 1.3 ALPHA from [https://github.com/Co-de-iT/froGH/releases](https://github.com/Co-de-iT/froGH/releases)
 extract the froGH folder from the zip file and place it in the Grasshopper User Objects folder: %AppData%\Grasshopper\UserObjects
   
@@ -36,22 +40,17 @@ Extract the .dll from the zip file and place it in the Grasshopper Libraries fol
 Contains .gha assemblies and .dll libraries and general purpose .gh definitions used in the workshop.
 
 **3Dpeople_20200120** - 3D people as meshes in 3 different resolutions  
-  
-**bitmaps in CS** - generate, load and save bitmaps from within C# components
-  
+**base meshes.gh** - reference mesh models that can be use in exercises  
+**bitmaps in CS** - generate, load and save bitmaps from within C# components  
 **Curl noise.gh** - uses Noises.dll library to compute SimplexNoise and CurlNoise functions  
-  
 **Custom material preview.gh**  
 **Custom material preview.3dm**  
 Use custom-generated materials in Grasshopper preview (works for Rhino rendered modes)  
-  
+**interpolate mesh data.gh** - interpolate scalar and vector data while performing a Catmull-Clark subdivision of a mesh - sometimes Millipede can be slow on big geometries. This definition allows the use of a lower-resolution mesh for faster analysis and interpolate data to use on a high-res mesh  
 **M00_Millipede FEM field.gh** - simple use of Millipede Grasshopper plugin to generate a scalar and vector field of structural information over a FEM model of a mesh surface  
 **M01_Millipede graphics generator.gh** - generates and bakes geometry for 3 different diagrams of Millipede generated data  
 *Millipede_data.ghdata* - this file is a sample of how data is passed between M00 and M01  
-**interpolate mesh data.gh** - interpolate scalar and vector data while performing a Catmull-Clark subdivision of a mesh - sometimes Millipede can be slow on big geometries. This definition allows the use of a lower-resolution mesh for faster analysis and interpolate data to use on a high-res mesh  
-  
-**Symmetric noise - displace.gh** - Computes Noise functions in a symmetric way along meshes and generates a displaced mesh accordingly  
-  
+**Symmetric noise - displace.gh** - Computes Noise functions in a symmetric fashion along meshes and generates a displaced mesh accordingly  
 **Util_Clipping plane - Turntable base.3dm**  
 **Util-01_clipping plane anim.gh**  
 **Util-02_turntable.gh**  
@@ -59,21 +58,17 @@ Use custom-generated materials in Grasshopper preview (works for Rhino rendered 
 **Util-04_Anemone run, turntable and capture**  
 These files are helpers to generate, respectively: an animation of a moving clipping plane (for a model tomography), a turntable of one or more geometries, capture a Rhino viewport from Grasshopper, and record an animation of an Anemone loop as it executes  
   
-**base meshes.gh** - reference mesh models that can be use in exercises  
-<br>
-
 ### @ utilities/Display Modes
 Contains a bunch of customized Display Modes for Rhino 6 - they can be installed in Rhino from:  
 _Tools > Options > View > Display Modes > Import_  
-
-
+  
 ### @ utilities/Mesh Modeling
 Rhino files and Grasshopper definitions for basic Mesh modeling (low poly to subdivision techniques)  
-
+  
 ---
 ## codes
-
-These folders contain the codes, organized as follows:
+  
+These folders contain the codes, organized as follows:  
   
 **GH_<something>** - all things Grasshopper-focused: intuition and C# introductory codes  
 **VS_Codes** - all codes developed for complex strategies with Visual Studio as IDE <coming soon>  
@@ -90,3 +85,10 @@ This folder contains all the Grasshopper definitions with a progressive introduc
 **CS_05_1_gradient descent - erosion.gh** - gradient descent erosion example in C#  
 **CS_06_delegates example.gh** - explanation of delegates, anonymous functions and lambda syntax in C#  
 **CS_07_RTree point search.gh** - using RTree data structure in C# - simple example of nearest neighbours search  
+  
+### GH_Intuition
+This folder contains some introductory iterativer strategies developed with standard components + Anemone plug-in for amore intuitive approach
+  
+**01-00_iterative strategies - intuition.gh** - introduction to iterative strategies in Grasshopper  
+**01-00-bis_gradient descent - intuition.gh** - simple, geometry based gradient descent algorithm in Grasshopper  
+**01-01_environment and field - intuition.gh** - reading information from an environment/field  
