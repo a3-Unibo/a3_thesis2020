@@ -4,7 +4,7 @@ Codes used in the Thesis sessions 2020.
   
 Please note that this material is a compendium to in-person teaching workshop days, so many implied instructions, premises and cautions given during the dat-to-day development have not been included. - tutor: [Alessio Erioli](https://www.unibo.it/sitoweb/alessio.erioli/)  
   
-Tools used: Rhinoceros 3D v6 (includes Grasshopper), Visual Studio Community 2019.
+Required programs: [Rhinoceros 3D v6](https://www.rhino3d.com) (includes Grasshopper), [Visual Studio Community 2019](https://visualstudio.microsoft.com/vs/) (install **.NET desktop development** workload).
   
 ## Installations
 These are the required installations:
@@ -14,7 +14,7 @@ These are the required installations:
   
 ### Components
 . [Anemone](https://www.food4rhino.com/app/anemone)  
-. [Fattener](https://discourse.mcneel.com/t/  skeleton-fattener-mesh-cage-morph/74766) - requires forum registration  
+. [Fattener](https://discourse.mcneel.com/t/skeleton-fattener-mesh-cage-morph/74766) - requires forum registration  
 . [Human](https://www.food4rhino.com/app/human)  
 . [Impala](https://www.food4rhino.com/app/impala)  
 . [Meshedit](https://www.food4rhino.com/app/meshedit)  
