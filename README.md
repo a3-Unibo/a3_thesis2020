@@ -1,3 +1,5 @@
+![Erosion on surface](https://raw.githubusercontent.com/a3-Unibo/a3_thesis2020/master/%40%20media/erosion.jpg)
+
 # a3_thesis2020
   
 Codes used in the Thesis sessions 2020.  
