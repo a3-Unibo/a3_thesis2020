@@ -4,18 +4,18 @@
   
 Codes used in the Thesis sessions 2020.  
   
-Please note that this material is a compendium to in-person teaching workshop days, so many implied instructions, premises and cautions given during the dat-to-day development have not been included. - tutor: [Alessio Erioli](https://www.unibo.it/sitoweb/alessio.erioli/)  
+Please note that this material is a compendium to in-person teaching, so, several implied instructions, premises and cautions given during the dat-to-day development have not been included. - tutor: [Alessio Erioli](https://www.unibo.it/sitoweb/alessio.erioli/)  
   
   
 ## Installations
-These are the required installations
+These are the required installations:
 
 ### Programs
 . [Rhinoceros 3D v6](https://www.rhino3d.com) (includes Grasshopper)  
 . [Visual Studio Community 2019](https://visualstudio.microsoft.com/vs/) (install **.NET desktop development** workload)  
 
 ### Rhino plugins
-. [topmostviewport](https://www.food4rhino.com/app/topmost-viewport)
+. [topmostviewport](https://www.food4rhino.com/app/topmost-viewport) - a useful floating topmost window if you have a single screen  
   
 ### Grasshopper Components
 . [Anemone](https://www.food4rhino.com/app/anemone)  
@@ -28,22 +28,22 @@ These are the required installations
 . [Plankton](https://github.com/meshmash/Plankton) - read the "Using Plankton with Grasshopper" paragraph  
   
 ### Grasshopper User Objects
-froGH WIP - get froGH 1.3 ALPHA from [https://github.com/Co-de-iT/froGH/releases](https://github.com/Co-de-iT/froGH/releases)
-extract the froGH folder from the zip file and place it in the Grasshopper User Objects folder: %AppData%\Grasshopper\UserObjects
+. [froGH 1.3 ALPHA](https://github.com/Co-de-iT/froGH/releases) -
+extract the froGH folder from the zip file and place it in the Grasshopper User Objects folder: _%AppData%\Grasshopper\UserObjects_  
   
 ### dll Libraries
 . [Noises.dll](https://drive.google.com/open?id=1UXI6UHtCaZFw4csWIghDHwlBSObBp31G) - library with Simplex Noise generation functions, it can be used to embed Noise calculations (including Curl Noise, which is based on Simplex Noise) in a custom C# script.  
-Extract the .dll from the zip file and place it in the Grasshopper Libraries folder: %AppData%\Grasshopper\Libraries
+Extract the .dll from the zip file and place it in the Grasshopper Libraries folder: _%AppData%\Grasshopper\Libraries_  
 
 ---
 
 ## @ utilities
 
-Contains .gha assemblies and .dll libraries and general purpose .gh definitions used in the workshop.
+Contains .gha assemblies and general purpose .gh definitions used in the workshop.
 
-**3Dpeople_20200120** - 3D people as meshes in 3 different resolutions  
+**3Dpeople_20200120.3dm** - 3D people as meshes in 3 different resolutions  
 **base meshes.gh** - reference mesh models that can be use in exercises  
-**bitmaps in CS** - generate, load and save bitmaps from within C# components  
+**bitmaps in CS.gh** - generate, load and save bitmaps from within C# components  
 **Curl noise.gh** - uses Noises.dll library to compute SimplexNoise and CurlNoise functions  
 **Custom material preview.gh**  
 **Custom material preview.3dm**  
@@ -57,7 +57,7 @@ Use custom-generated materials in Grasshopper preview (works for Rhino rendered 
 **Util-01_clipping plane anim.gh**  
 **Util-02_turntable.gh**  
 **Util-03_view capture.gh**  
-**Util-04_Anemone run, turntable and capture**  
+**Util-04_Anemone run, turntable and capture.gh**  
 These files are helpers to generate, respectively: an animation of a moving clipping plane (for a model tomography), a turntable of one or more geometries, capture a Rhino viewport from Grasshopper, and record an animation of an Anemone loop as it executes  
   
 ### @ utilities/Display Modes
@@ -70,13 +70,10 @@ Rhino files and Grasshopper definitions for basic Mesh modeling (low poly to sub
 ---
 ## codes
   
-These folders contain the codes, organized as follows:  
-  
-**GH_<something>** - all things Grasshopper-focused: intuition and C# introductory codes  
-**VS_Codes** - all codes developed for complex strategies with Visual Studio as IDE <coming soon>  
+The codes are organized as follows:  
   
 ### GH_CSharp
-This folder contains all the Grasshopper definitions with a progressive introduction to C#.
+This folder contains the Grasshopper definitions for a progressive introduction to C#.
   
 **CS_00_intro.gh** - introduction to C# programming in Grasshopper  
 **CS_01_data 01.gh** - data types in C# - part 1  
@@ -87,9 +84,12 @@ This folder contains all the Grasshopper definitions with a progressive introduc
 **CS_05_1_gradient descent - erosion.gh** - gradient descent erosion example in C#  
 **CS_06_delegates example.gh** - explanation of delegates, anonymous functions and lambda syntax in C#  
 **CS_07_RTree point search.gh** - using RTree data structure in C# - simple example of nearest neighbours search  
+
+#### GH_CSharp/CS files
+Contains the source CS files from the examples above.  
   
 ### GH_Intuition
-This folder contains some introductory iterativer strategies developed with standard components + Anemone plug-in for amore intuitive approach
+This folder contains some introductory iterative strategies developed with standard components + Anemone plug-in for a more intuitive approach
   
 **01-00_iterative strategies - intuition.gh** - introduction to iterative strategies in Grasshopper  
 **01-00-bis_gradient descent - intuition.gh** - simple, geometry based gradient descent algorithm in Grasshopper  
