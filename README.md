@@ -82,8 +82,11 @@ This folder contains the Grasshopper definitions for a progressive introduction 
 **CS_04_classes.gh** - classes and objects in C#  
 **CS_05_0_gradient descent.gh** - gradient descent example in C#  
 **CS_05_1_gradient descent - erosion.gh** - gradient descent erosion example in C#  
-**CS_06_delegates example.gh** - explanation of delegates, anonymous functions and lambda syntax in C#  
+**CS_06_delegates.gh** - explanation of delegates, anonymous functions and lambda syntax in C#  
 **CS_07_RTree point search.gh** - using RTree data structure in C# - simple example of nearest neighbours search  
+**CS_08_using Linq.gh** - using LINQ in C# - simple example of Linq query synthax  
+**CS_09_MultiThreading-serialization-GHtypes.gh** - Multithreading, serialization and GH Types in C#   
+**CS_10_MultiThreading-Diffusion.gh** - Multithreading and diffusion algorithm in a 2D matrix    
 
 #### GH_CSharp/CS files
 Contains the source CS files from the examples above.  
