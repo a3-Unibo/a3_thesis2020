@@ -97,3 +97,9 @@ This folder contains some introductory iterative strategies developed with stand
 **01-00_iterative strategies - intuition.gh** - introduction to iterative strategies in Grasshopper  
 **01-00-bis_gradient descent - intuition.gh** - simple, geometry based gradient descent algorithm in Grasshopper  
 **01-01_environment and field - intuition.gh** - reading information from an environment/field  
+  
+### VS_Codes
+This folder contains Visual Studio Projects and related .gh files for the following examples:  
+  
+**GradientDescent** - simple gradient descent algorithm on mesh (with mesh erosion)  
+**MTSerialization** - advantages of parallelization (of a for loop) and conversion to GH_Types to speed up execution  
