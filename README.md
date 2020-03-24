@@ -64,6 +64,10 @@ These files are helpers to generate, respectively: an animation of a moving clip
 Contains a bunch of customized Display Modes for Rhino 6 - they can be installed in Rhino from:  
 _Tools > Options > View > Display Modes > Import_  
   
+### @ utilities/GH reference
+Contains reference definitions for the required Grasshopper knowledge to step beyond basics.  
+**EXPL_00 - DataTrees.gh** - Data Tree breakdown: structure, commands, navigation - anything you need to know to master Data Trees in Grasshopper.  
+  
 ### @ utilities/Mesh Modeling
 Rhino files and Grasshopper definitions for basic Mesh modeling (low poly to subdivision techniques)  
   
