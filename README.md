@@ -107,3 +107,8 @@ This folder contains Visual Studio Projects and related .gh files for the follow
   
 **GradientDescent** - simple gradient descent algorithm on mesh (with mesh erosion)  
 **MTSerialization** - advantages of parallelization (of a for loop) and conversion to GH_Types to speed up execution  
+  
+---
+  
+#### copyright
+This material is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/). ![cc button](https://licensebuttons.net/l/by-nc-sa/4.0/80x15.png)
