@@ -77,7 +77,7 @@ Rhino files and Grasshopper definitions for basic Mesh modeling (low poly to sub
 The codes are organized as follows:  
   
 ### GH_CSharp
-The introduction to C# has been moved to anothe repo: [intro to C# in Grasshopper](https://github.com/Co-de-iT/CS-intro)  
+The introduction to C# has been moved to a separated repo: [intro to C# in Grasshopper](https://github.com/Co-de-iT/CS-intro)  
   
 ### GH_Intuition
 This folder contains some introductory iterative strategies developed with standard components + Anemone plug-in for a more intuitive approach
