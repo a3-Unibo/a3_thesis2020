@@ -89,8 +89,10 @@ This folder contains some introductory iterative strategies developed with stand
 ### VS_Codes
 This folder contains Visual Studio Projects and related .gh files for the following examples:  
   
+**AgentSystemFlock** - implementation of classic Craig Reynolds flocking model  
 **GradientDescent** - simple gradient descent algorithm on mesh (with mesh erosion)  
 **MTSerialization** - advantages of parallelization (of a for loop) and conversion to GH_Types to speed up execution  
+**Stigmergy** - example of stigmergy on Mesh, with evaporation and diffusion  
   
 ---
   
