@@ -19,6 +19,7 @@ These are the required installations:
   
 ### Grasshopper Components
 . [Anemone](https://www.food4rhino.com/app/anemone)  
+. [Dendro](https://www.food4rhino.com/app/dendro)
 . [Fattener](https://discourse.mcneel.com/t/skeleton-fattener-mesh-cage-morph/74766) - requires forum registration  
 . [FileToScript2](https://drive.google.com/open?id=1PZIlEkYBvyzUqHkfgsY78s1Z6T_nf6wI) - if you have an older Rhino SR and the .gha is not compatible you will have to compile it from Visual Studio (instructions are included)  
 . [Human](https://www.food4rhino.com/app/human)  
@@ -89,6 +90,8 @@ This folder contains some introductory iterative strategies developed with stand
 ### VS_Codes
 This folder contains Visual Studio Projects and related .gh files for the following examples:  
   
+**AgentBodiesOnMesh** - agent bodies interacting on a mesh surface  
+**AgentBodiesVolumetric** - agent bodies interacting in a volume  
 **AgentSystemFlock** - implementation of classic Craig Reynolds flocking model  
 **GradientDescent** - simple gradient descent algorithm on mesh (with mesh erosion)  
 **MTSerialization** - advantages of parallelization (of a for loop) and conversion to GH_Types to speed up execution  
