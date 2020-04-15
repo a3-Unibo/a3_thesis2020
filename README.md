@@ -19,7 +19,7 @@ These are the required installations:
   
 ### Grasshopper Components
 . [Anemone](https://www.food4rhino.com/app/anemone)  
-. [Dendro](https://www.food4rhino.com/app/dendro)
+. [Dendro](https://www.food4rhino.com/app/dendro)  
 . [Fattener](https://discourse.mcneel.com/t/skeleton-fattener-mesh-cage-morph/74766) - requires forum registration  
 . [FileToScript2](https://drive.google.com/open?id=1PZIlEkYBvyzUqHkfgsY78s1Z6T_nf6wI) - if you have an older Rhino SR and the .gha is not compatible you will have to compile it from Visual Studio (instructions are included)  
 . [Human](https://www.food4rhino.com/app/human)  
@@ -50,6 +50,7 @@ Contains .gha assemblies and general purpose .gh definitions used in the worksho
 **Custom material preview.3dm**  
 Use custom-generated materials in Grasshopper preview (works for Rhino rendered modes)  
 **interpolate mesh data.gh** - interpolate scalar and vector data while performing a Catmull-Clark subdivision of a mesh - sometimes Millipede can be slow on big geometries. This definition allows the use of a lower-resolution mesh for faster analysis and interpolate data to use on a high-res mesh  
+**Isosurfacing - Dendro.gh** - isosurfacing curves and meshes with Dendro plug-in  
 **M00_Millipede FEM field.gh** - simple use of Millipede Grasshopper plugin to generate a scalar and vector field of structural information over a FEM model of a mesh surface  
 **M01_Millipede graphics generator.gh** - generates and bakes geometry for 3 different diagrams of Millipede generated data  
 *Millipede_data.ghdata* - this file is a sample of how data is passed between M00 and M01  
