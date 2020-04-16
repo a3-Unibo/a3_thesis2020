@@ -11,10 +11,9 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 
 // <Custom using> 
-using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
-using System.Drawing;
+using System.Linq;
 // </Custom using> 
 
 
@@ -58,13 +57,14 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
     /// Output parameters as ref arguments. You don't have to assign output parameters, 
     /// they will have a default value.
     /// </summary>
-    private void RunScript(bool reset, bool go, List<Plane> Pl, double sR, List<Polyline> body, ref object iter, ref object Bodies, ref object Planes, ref object TipPoints)
+    private void RunScript(bool reset, bool go, bool debug, int steps, List<System.Object> Pl, double sR, List<Polyline> body, ref object iter, ref object Bodies, ref object TipPoints)
     {
         // <Custom code> 
 
         /*
           agent bodies interaction - C#
-          code by Alessio Erioli - (c) Co-de-iT 2019 
+          code by Alessio Erioli - (c) Co-de-iT 2019
+          rev. 2 - 2020
         */
 
         // . . . . . . . . . . . . . . . . . . . . . . . . return on null data
@@ -72,20 +72,22 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
 
         // variables for data extraction
         DataTree<Polyline> outBodies = new DataTree<Polyline>();
-        GH_Plane[] outPlanes = new GH_Plane[Pl.Count];
-        List<GH_Point> tipPoints = new List<GH_Point>();
+
 
         // . . . . . . . . . . . . . . . . . . . . . . . . initialize system
         if (reset || aBS == null)
         {
-            aBS = new AgentBodySystem(Pl, body, sR);
+            // cast input into Planes list
+            List<Plane> plList = Pl.Select(p => (Plane)p).ToList();
+
+            aBS = new AgentBodySystem(plList, body, sR);
             iterationsCount = 0;
         }
 
 
         if (go)
         {
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < steps; i++)
             {
                 // update System
                 aBS.Update();
@@ -99,18 +101,30 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
 
         // . . . . . . . . . . . . . . . . . . . . . . . . extract geometries and data
 
+        // unfortunately, DataTree structures do not work with parallel writing
+        // body output must be done in a sequential fashion
         for (int i = 0; i < aBS.Agents.Length; i++)
-        {
             outBodies.AddRange(aBS.Agents[i].ExtractBody(), new GH_Path(i));
-            outPlanes[i] = new GH_Plane(aBS.Agents[i].agentPlane);
-            for (int j = 0; j < aBS.Agents[i].body.Tips.Count; j++)
-                tipPoints.Add(new GH_Point(aBS.Agents[i].body.Tips[j].pos));
-        }
 
         iter = iterationsCount;
         Bodies = outBodies;
-        Planes = outPlanes;
-        TipPoints = tipPoints;
+
+        if (debug)
+        {
+            // ConcurrentBag is a thread-safe collection that admits parallel writing
+            // but the order is scrambled (in this case order doesn't matter)
+            ConcurrentBag<GH_Point> tPoints = new ConcurrentBag<GH_Point>();
+
+            Parallel.For(0, aBS.Agents.Length, i =>
+            {
+                for (int j = 0; j < aBS.Agents[i].body.Tips.Count; j++)
+                    tPoints.Add(new GH_Point(aBS.Agents[i].body.Tips[j].pos));
+            });
+
+            TipPoints = tPoints;
+        }
+
+
         // </Custom code> 
     }
 
@@ -130,7 +144,7 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
     public class AgentBodySystem
     {
         public AgentBody[] Agents;
-        RTree agentsRTree;
+        readonly RTree agentsRTree;
         public double searchRadius;
         public double globalDeviation;
         public double deviationThreshold;
@@ -140,7 +154,7 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
             Agents = new AgentBody[Pl.Count];
             agentsRTree = new RTree();
             this.searchRadius = searchRadius;
-            deviationThreshold = 0.01; // to be implemented in the future (stop when global deviation under this threshold)
+            deviationThreshold = 0.01; // for future implementation (stop when global deviation under this threshold)
 
             // . . . . . . . . . . . . . . . . . . . . . . . . build agents array & RTree
             // since agents are fixed it can be built in advance
@@ -151,16 +165,14 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
             }
 
             // . . . . . . . . . . . . . . . . . . . . . . . . . . . build neighbours map
-            FindNeighbours(this.searchRadius);
+            FindNeighbours();
             foreach (AgentBody ab in Agents)
                 ab.FindTipNeighbour();
         }
 
-        public AgentBodySystem() { }
-
         public void Update()
         {
-            globalDeviation = 0f;
+            globalDeviation = 0.0; // for future implementation
 
             Parallel.ForEach(Agents, ab =>
             {
@@ -172,28 +184,15 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
             {
                 foreach (Tip t in ab.body.Tips) t.Update();
             });
-
-            // rebuild bodies
-            Parallel.ForEach(Agents, ab =>
-            {
-                ab.RebuildBody();
-            });
         }
 
-        public void FindNeighbours(double searchRadius)
+        void FindNeighbours()
         {
-
             foreach (AgentBody ab in Agents)
-            {
-                EventHandler<RTreeEventArgs> rTreeCallback = (object sender, RTreeEventArgs args) =>
+                agentsRTree.Search(new Sphere(ab.body.O, searchRadius), (sender, args) =>
                 {
-                    if (Agents[args.Id] != ab)
-                        ab.Neighbours.Add(Agents[args.Id]);
-
-                };
-
-                agentsRTree.Search(new Sphere(ab.body.O, searchRadius), rTreeCallback);
-            }
+                    if (Agents[args.Id] != ab) ab.Neighbours.Add(Agents[args.Id]);
+                });
         }
     }
 
@@ -213,58 +212,47 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
             // define agent body and orient it
             this.agentPlane = agentPlane;
             body = new Body(polylines);
-            OrientBody(Plane.WorldXY, this.agentPlane);
+            body.Orient(Plane.WorldXY, this.agentPlane);
 
-            Neighbours = new List<AgentBody>(); // this list will be filled later by the simulation
-        }
-
-        public void OrientBody(Plane oldPlane, Plane newPlane)
-        {
-            var x = Transform.PlaneToPlane(oldPlane, newPlane);
-
-            body.O.Transform(x);
-
-            for (int i = 0; i < body.Arms.Count; i++)
-            {
-                body.Arms[i].Transform(x);
-                body.Tips[i].pos = body.Arms[i][body.Arms[i].Count - 1];
-                body.Tips[i].prev = body.Arms[i][body.Arms[i].Count - 2];
-            }
-
-        }
-
-        public void RebuildBody()
-        {
-            for (int i = 0; i < body.Arms.Count; i++)
-            {
-                body.Arms[i][body.Arms[i].Count - 1] = body.Tips[i].pos;
-            }
-
+            Neighbours = new List<AgentBody>(); // this list will be filled later by the FindNeighbours function in AgentBodySystem
         }
 
         public void Update()
         {
-            //TipsCohesion();
-            TipsCohesionFixed();
+            TipsCohesion();
         }
 
         public void FindTipNeighbour()
         {
+            /*
+             each tip finds it own designed neighbour. A neighbour AgentPlane's Tip is a candidate neighbour if:
+             . neighbour's tip is within the angle of vision 
+             (angle between the current tip dir and the vector connecting the tip with the nighbour's tip
+             is within the angle of vision)
+             OR
+             . neighbour's direction is within the angle of vision
+             (angle between the tip direction and the reverse of the nighbour's tip direction is within the angle of vision)
+
+            check which angle is smaller, calculate the distance from the tip to the neighbour's tip or prev respectively
+            and select the candidate closer to the tip (find candidate with minimum distance)
+
+             */
 
             double dSqPos, dSqPrev;
-            double anglePos, anglePrev;
+            double anglePos, angleDir;
             double minD;
             foreach (Tip tip in body.Tips)
             {
-                minD = 1.0f; //Double.MaxValue; // max Search Radius (squared)
+                minD = double.MaxValue; // 1.0 - max Search Radius (squared)
                 foreach (AgentBody nearAg in Neighbours)
                 {
                     foreach (Tip neighTip in nearAg.body.Tips)
                     {
                         // calculate angles
-                        anglePos = Vector3d.VectorAngle(tip.pos - tip.prev, neighTip.pos - tip.pos);
-                        anglePrev = Vector3d.VectorAngle(tip.pos - tip.prev, neighTip.prev - tip.pos);
-                        if (anglePos < anglePrev && anglePos < tip.angleOfVis)
+                        anglePos = Vector3d.VectorAngle(tip.dir, neighTip.pos - tip.pos);
+                        angleDir = Vector3d.VectorAngle(tip.dir, neighTip.prev - tip.pos);
+
+                        if (anglePos < angleDir && anglePos < tip.angleOfVis)
                         {
                             dSqPos = tip.pos.DistanceToSquared(neighTip.pos);
                             if (dSqPos < minD)
@@ -273,7 +261,7 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
                                 tip.neighbour = neighTip;
                             }
                         }
-                        else if (anglePrev < tip.angleOfVis)
+                        else if (angleDir < tip.angleOfVis)
                         {
                             dSqPrev = tip.pos.DistanceToSquared(neighTip.prev);
                             if (dSqPrev < minD)
@@ -282,14 +270,6 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
                                 tip.neighbour = neighTip;
                             }
                         }
-                        // calculate distance to prev
-                        //dSqPos = tip.pos.DistanceToSquared(neighTip.pos);
-                        //dSqPrev = tip.pos.DistanceToSquared(neighTip.prev);
-                        //if (dSqPos < minD || dSqPrev < minD)
-                        //{
-                        //    minD = dSqPos<dSqPrev? dSqPos:dSqPrev;
-                        //    tip.neighbour = neighTip;
-                        //}
                     }
                 }
             }
@@ -297,31 +277,14 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
 
         }
 
-        //public void TipsCohesion()
-        //{
-        //    List<Tip> nearTips = new List<Tip>();
-
-        //    // search neighbour agents and add tips to neighbours tips list (do it at every iteration since tips can move)
-        //    foreach (AgentBody nearAg in Neighbours)
-        //        nearTips.AddRange(nearAg.body.Tips);
-
-        //    // call tips ComputeDesired
-        //    foreach (Tip t in body.Tips) t.ComputeDesiredToPrev(nearTips);
-        //}
-
-        public void TipsCohesionFixed()
+        public void TipsCohesion()
         {
             foreach (Tip t in body.Tips) t.ComputeDesiredToFixed();
         }
 
-
-        public void UpdateArms()
-        {
-
-        }
-
         public List<Polyline> ExtractBody()
         {
+            body.Rebuild();
             return body.Arms;
         }
 
@@ -337,9 +300,24 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
         public Point3d O;
         public Body(List<Polyline> polylines)
         {
-            // ATTENTION - typical reference type mistake - shallow vs deep copies
-            // this is a shallow copy, so it references always the same PolyLine list!
-            //Arms = new List<Polyline>(polylines); 
+            /*
+             ATTENTION - data type vs reference type copy - or - shallow vs deep copies
+
+             structures (such as Point3d, Vector3d) are passed BY DATA, so, in this case:
+             Point3d newPoint = new Point3d(OldPoint);
+             newPoint is a true (deep) copy of OldPoint
+
+             classes (all Geometry types, such as Polylines, Curves, Surfaces, BReps) are
+             passed BY REFERENCE, so, in this case:
+             List<Polyline> Arms = new List<Polyline>(polylines);
+             Arms is a SHALLOW copy, so it references always the same PolyLine list.
+             This means that any change in the PolyLines in Arms is passed also to the original list,
+             since references aren't true copies but just pointers to another object. Any change to a
+             reference propagates to the original and all other references.
+              
+             in order to make a deep copy look for a Duplicate() or Copy() method;
+             it may be the case sometimes that one has to write a custom method to ensure copy
+            */
 
             // this makes a deep copy - CORRECT
             Arms = new List<Polyline>();
@@ -356,6 +334,28 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
                 if (arm.Count < 3) prev = O; else prev = arm[arm.Count - 2];
                 Tips.Add(new Tip(this, arm[arm.Count - 1], prev, armIndex));
             }
+        }
+
+        public void Orient(Plane oldPlane, Plane newPlane)
+        {
+            var x = Transform.PlaneToPlane(oldPlane, newPlane);
+
+            O.Transform(x);
+
+            for (int i = 0; i < Arms.Count; i++)
+            {
+                Arms[i].Transform(x);
+                Tips[i].pos = Arms[i][Arms[i].Count - 1];
+                Tips[i].prev = Arms[i][Arms[i].Count - 2];
+                Tips[i].dir = Tips[i].pos - Tips[i].prev;
+            }
+
+        }
+
+        public void Rebuild()
+        {
+            for (int i = 0; i < Arms.Count; i++)
+                Arms[i][Arms[i].Count - 1] = Tips[i].pos;
         }
     }
 
@@ -382,97 +382,17 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
             this.pos = pos;
             this.prev = prev;
             this.armIndex = armIndex;
-            this.dir = pos - prev;
-            this.maxLen = dir.Length * 2.0f;
+            dir = pos - prev;
+            maxLen = dir.Length * 2.0;
             this.cR = cR;
             this.cI = cI;
             this.angleOfVis = angleOfVis;
             desired = Vector3d.Zero;
         }
 
-        // constructor chaining example
+        // constructor chaining example                                                                  cR     cI     angleOfVis
         public Tip(Body body, Point3d pos, Point3d prev, int armIndex) : this(body, pos, prev, armIndex, 1.0f, 0.05f, Math.PI * 0.3) { }
 
-        public void ComputeDesiredToTip(List<Tip> neighbourTips)
-        {
-            // reset desired vector
-            desired = Vector3d.Zero;
-            // if neighbour tips list is zero or null return
-            if (neighbourTips == null || neighbourTips.Count == 0) return;
-
-            Vector3d cohesion = Vector3d.Zero;
-            double nTipCount = 0.0;
-            double distSq, angle;
-            Vector3d toNTip;
-            // search neighbour tips list
-            foreach (Tip nTip in neighbourTips)
-            {
-                distSq = pos.DistanceToSquared(nTip.pos);
-                //  if tip in radius 
-                if (distSq < cR)
-                {
-                    //   then if tip in angle of vision
-                    toNTip = nTip.pos - pos;
-                    angle = Vector3d.VectorAngle(dir, toNTip);
-                    if (angle < angleOfVis)
-                    {
-                        //  add to cohesion vector and increase counter
-                        cohesion += toNTip;
-                        nTipCount++;
-                    }
-                }
-            }
-            // if found tips number > 0
-            if (nTipCount > 0)
-            {
-                // average cohesion vector
-                cohesion /= nTipCount;
-                // desired is cohesion
-                desired = cohesion;
-            }
-
-        }
-
-        public void ComputeDesiredToPrev(List<Tip> neighbourTips)
-        {
-            // reset desired vector
-            desired = Vector3d.Zero;
-            // if neighbour tips list is zero or null return
-            if (neighbourTips == null || neighbourTips.Count == 0) return;
-
-            Vector3d cohesion = Vector3d.Zero;
-            double nTipCount = 0.0;
-            double distSq, angle;
-            Vector3d toNTip;
-            // search neighbour tips list
-
-            foreach (Tip nTip in neighbourTips)
-            {
-                distSq = pos.DistanceToSquared(nTip.prev);
-                //  if prev in radius 
-                if (distSq < cR)
-                {
-                    //   then if tip in angle of vision
-                    toNTip = nTip.prev - pos;
-                    angle = Vector3d.VectorAngle(dir, toNTip);
-                    if (angle < angleOfVis)
-                    {
-                        //     add to cohesion vector and increase counter
-                        cohesion += toNTip;
-                        nTipCount++;
-                    }
-                }
-            }
-            // if found tips number > 0
-            if (nTipCount > 0)
-            {
-                // average cohesion vector
-                cohesion /= nTipCount;
-                // desired is cohesion
-                desired = cohesion;
-            }
-
-        }
 
         public void ComputeDesiredToFixed()
         {
@@ -483,6 +403,12 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
 
             desired = neighbour.prev - pos;
 
+        }
+
+        public void Update()
+        {
+            UpdatePosition();
+            UpdateDirection();
         }
 
         public void UpdatePosition()
@@ -497,28 +423,11 @@ public class Script_Instance2 : GH_ScriptInstance // Script_Instance2 - name cha
             }
         }
 
-        //public void UpdatePositionOld()
-        //{
-        //    pos += desired * cI;
-        //    // limit tip position to a max reach
-        //    Vector3d toTip = pos - body.O;
-        //    if (toTip.SquareLength > 1f)
-        //    {
-        //        toTip = Limit(toTip, 1f);
-        //        pos = body.O + toTip;
-        //    }
-        //}
-
         public void UpdateDirection()
         {
             dir = pos - prev;
         }
 
-        public void Update()
-        {
-            UpdatePosition();
-            UpdateDirection();
-        }
     }
 
     // .................................................................. Utilities 

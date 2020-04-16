@@ -14,6 +14,7 @@ using Grasshopper.Kernel.Types;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Drawing;
+using System.Linq;
 using Noises;
 // </Custom using> 
 
@@ -58,49 +59,58 @@ public class Script_Instance : GH_ScriptInstance
     /// Output parameters as ref arguments. You don't have to assign output parameters, 
     /// they will have a default value.
     /// </summary>
-    private void RunScript(bool reset, bool go, bool debug, List<Point3d> P, List<Vector3d> V, double curlNoiseScale, double curlNoiseTime, double perlNoiseScale, double perlNoiseTime, double isoValue, double isoValueTol, double planeRadius, double searchRadius, double cInt, double aInt, double sInt, double fieldInt, double isoVInt, double maxForce, ref object Planes, ref object neigh)
+    private void RunScript(bool reset, bool go, bool debug, List<System.Object> P, List<System.Object> V, double curlNoiseScale, double curlNoiseTime, double simNoiseScale, double simNoiseTime, double isoValue, double isoValueTol, double planeRadius, double searchRadius, double cInt, double aInt, double sInt, double fieldInt, double isoVInt, double maxForce, ref object Planes, ref object neigh)
     {
         // <Custom code> 
 
         // align planes with field/neighbours - C#
         // code by Alessio Erioli - (c) Co-de-iT 2019 
 
-
-        if (P == null || P.Count == 0) return;
+        if (P == null || V == null || P.Count != V.Count) return;
 
         if (reset || aPS == null)
         {
+            // Casting P and V to Point3d and Vector3d Lists
+            List<Point3d> pList = new List<Point3d>();
+            List<Vector3d> vList = new List<Vector3d>();
+            for (int i = 0; i < P.Count; i++)
+            {
+                pList.Add((Point3d)P[i]);
+                vList.Add((Vector3d)V[i]);
+            }
+
             // passing the essential parameters to the new simulation
-            aPS = new AgentPlaneSimulation(P, V);
+            aPS = new AgentPlaneSimulation(pList, vList);
 
         }
 
-        // update parameters
-        aPS.curlNoiseScale = curlNoiseScale;
-        aPS.curlNoiseTime = curlNoiseTime;
-        aPS.perlNoiseScale = perlNoiseScale;
-        aPS.perlNoiseTime = perlNoiseTime;
-        aPS.isoValue = isoValue;
-        aPS.isoValueTol = isoValueTol;
-        aPS.planeRadius = planeRadius;
-        aPS.searchRadius = searchRadius;
-        aPS.cohesionIntensity = cInt;
-        aPS.alignmentIntensity = aInt;
-        aPS.separationIntensity = sInt;
-        aPS.fieldIntensity = fieldInt;
-        aPS.isoValIntensity = isoVInt;
-        aPS.maxForce = maxForce;
-
         if (go)
         {
+
+            // update parameters
+            aPS.curlNoiseScale = curlNoiseScale;
+            aPS.curlNoiseTime = curlNoiseTime;
+            aPS.simplexNoiseScale = (float)simNoiseScale;
+            aPS.simplexNoiseTime = (float)simNoiseTime;
+            aPS.isoValue = (float)isoValue;
+            aPS.isoValueTol = (float)isoValueTol;
+            aPS.planeRadius = planeRadius;
+            aPS.searchRadius = searchRadius;
+            aPS.cohesionIntensity = cInt;
+            aPS.alignmentIntensity = aInt;
+            aPS.separationIntensity = sInt;
+            aPS.fieldIntensity = fieldInt;
+            aPS.isoValIntensity = isoVInt;
+            aPS.maxForce = maxForce;
+
             // run simulation
-            aPS.Run();
+            aPS.Update();
             Component.ExpireSolution(true);
         }
 
         // extract output geometries
-        Planes = aPS.OutPlanes();
-        if (debug) neigh = aPS.NeighOut();
+        Planes = aPS.ExtractPlanes();
+        if (debug) neigh = aPS.ExtractNeighbours();
         // </Custom code> 
     }
 
@@ -108,6 +118,7 @@ public class Script_Instance : GH_ScriptInstance
 
     // ............................................................ global variables 
     // global variables
+
     public AgentPlaneSimulation aPS;
 
     // .................................................................... classes 
@@ -126,10 +137,10 @@ public class Script_Instance : GH_ScriptInstance
 
         public double curlNoiseScale;
         public double curlNoiseTime;
-        public double perlNoiseScale;
-        public double perlNoiseTime;
-        public double isoValue;
-        public double isoValueTol;
+        public float simplexNoiseScale;
+        public float simplexNoiseTime;
+        public float isoValue;
+        public float isoValueTol;
         public double planeRadius;
         public double searchRadius;
         public double cohesionIntensity;
@@ -138,7 +149,8 @@ public class Script_Instance : GH_ScriptInstance
         public double fieldIntensity;
         public double isoValIntensity;
         public double maxForce;
-        
+        public double sepDistSquared;
+
         public AgentPlane[] agentPlanes;
 
         // ..........................    constructor
@@ -156,9 +168,7 @@ public class Script_Instance : GH_ScriptInstance
             // build agent planes array
             agentPlanes = new AgentPlane[P.Length];
 
-            if (V == null || V.Length < P.Length)
-                V = RandomVectors(P.Length);
-
+            // populate agent planes array
             Parallel.For(0, P.Length, i =>
             {
                 agentPlanes[i] = new AgentPlane(P[i], V[i], this);
@@ -166,13 +176,9 @@ public class Script_Instance : GH_ScriptInstance
 
         }
 
-        public void Run()
+        public void Update()
         {
-            UpdateAgents();
-        }
-
-        public void UpdateAgents()
-        {
+            sepDistSquared = 4 * planeRadius * planeRadius; // the square of 2*plane radius
 
             // . . . . . . . . . . environmental and stigmergic interactions
 
@@ -181,17 +187,13 @@ public class Script_Instance : GH_ScriptInstance
 
             Parallel.For(0, agentPlanes.Length, i =>
              {
-                 // curl noise vector
-                 Vector3d cNV;
-                 cNV = CurlNoise.CurlNoiseVector(agentPlanes[i].O, curlNoiseScale, curlNoiseTime, true);
-                 cNV.Unitize();
-
                  // this resets the acceleration (or desired direction)
                  // in case a different update sequence is implemented
                  // remember to reset desired before calculating the new iteration
                  agentPlanes[i].ResetDesireds();
-                 agentPlanes[i].ComputeFieldAlign(cNV);
-                 agentPlanes[i].ComputeDesiredIsoValue((float)isoValue, perlNoiseScale, perlNoiseTime);
+                 // computes alignment with Curl Noise
+                 agentPlanes[i].ComputeCurlNoiseAlign();
+                 agentPlanes[i].ComputeDesiredIsoValue();
 
              });
 
@@ -202,36 +204,6 @@ public class Script_Instance : GH_ScriptInstance
             UpdateAgentsDirection();
 
         }
-
-        //public void UpdateAgents_OLD()
-        //{
-        // calculate curl noise vector for agents
-
-        //Vector3d[] curlNoiseVector = new Vector3d[agentPlanes.Length];
-
-        // parallel loop version 1
-        //var p = Partitioner.Create(0, agentPlanes.Length);
-
-        //Parallel.ForEach(p, (range, loopState) =>
-        //{
-        //    for (int i = range.Item1; i < range.Item2; i++)
-        //    {
-        //        CurlNoise(agentPlanes[i].O, cNS, cNT, true, out curlNoiseVector[i]);
-        //        curlNoiseVector[i].Unitize();
-        //        agentPlanes[i].ResetDesired();
-        //        agentPlanes[i].AlignWithField(curlNoiseVector[i], fI);
-        //    }
-        //});
-
-
-        // parallel loop version 2
-        //Parallel.For(0, agentPlanes.Length, i =>
-        //{
-        //    CurlNoise(agentPlanes[i].O, cNS, cNT, true, out curlNoiseVector[i]);
-        //    curlNoiseVector[i].Unitize();
-        //    agentPlanes[i].Align(curlNoiseVector[i], mF);
-        //});
-        //}
 
         public void FlockRTree()
         {
@@ -248,14 +220,11 @@ public class Script_Instance : GH_ScriptInstance
             {
                 agent.neighbours.Clear();
 
-                EventHandler<RTreeEventArgs> rTreeCallback =
-                    (object sender, RTreeEventArgs args) =>
-                    {
-                        if (agentPlanes[args.Id] != agent)
-                            agent.neighbours.Add(agentPlanes[args.Id]);
-                    };
-
-                rTree.Search(new Sphere(agent.O, searchRadius), rTreeCallback);
+                rTree.Search(new Sphere(agent.O, searchRadius), (sender, args) =>
+                {
+                    if (agentPlanes[args.Id] != agent)
+                        agent.neighbours.Add(agentPlanes[args.Id]);
+                });
             }
 
             // compute desired vector for each agent
@@ -268,41 +237,33 @@ public class Script_Instance : GH_ScriptInstance
 
         public void UpdateAgentsDirection()
         {
+            // another way of implementing a parallel loop: parallel foreach with partitioner
             var part = Partitioner.Create(0, agentPlanes.Length);
             Parallel.ForEach(part, (range, loopstate) =>
             {
                 for (int i = range.Item1; i < range.Item2; i++)
-                {
-                    // update at max Force
-                    agentPlanes[i].Update(maxForce);
-                }
+                    agentPlanes[i].Update();
             });
         }
 
-        /// <summary>
-        /// Output Planes
-        /// </summary>
-        /// <returns></returns>
-        public GH_Plane[] OutPlanes()
+
+        public GH_Plane[] ExtractPlanes()
         {
             GH_Plane[] gP = new GH_Plane[agentPlanes.Length];
             Parallel.For(0, agentPlanes.Length, i =>
             {
-                gP[i] = new GH_Plane(agentPlanes[i].PlaneOut());
-
+                gP[i] = new GH_Plane(agentPlanes[i].ExtractPlane());
             });
             return gP;
         }
 
-        public DataTree<GH_Point> NeighOut()
+        public DataTree<GH_Point> ExtractNeighbours()
         {
             DataTree<GH_Point> neighPts = new DataTree<GH_Point>();
             for (int i = 0; i < agentPlanes.Length; i++)
                 for (int j = 0; j < agentPlanes[i].neighbours.Count; j++)
-                {
                     neighPts.Add(new GH_Point(agentPlanes[i].neighbours[j].O), new GH_Path(i));
 
-                }
             return neighPts;
         }
 
@@ -317,50 +278,50 @@ public class Script_Instance : GH_ScriptInstance
 
         // fields
         public Point3d O;
-        public Vector3d X, Y, Z;
-        public Vector3d desDir; // desired direction - influenced by environmental field and neighbour agents' directions
+        public Vector3d X, Y;
+        public Vector3d desDirX, desDirY; // desired directions - influenced by environmental field and neighbour agents' directions
         public Vector3d desPos; // desired position - influenced by environmental movement constraints (es. surface) and neighbour agents
         public AgentPlaneSimulation agentSim;
         public List<AgentPlane> neighbours;
         public float currentFieldVal;
-        public Point3d[] SearchIcosahedron =
-        {
-            new Point3d( 0, 0, 1),
-            new Point3d(0.894427, 0, 0.447214),
-            new Point3d(0.276393, 0.850651, 0.447214),
-            new Point3d( -0.723607, 0.525731, 0.447214),
-            new Point3d( -0.723607, -0.525731, 0.447214),
-            new Point3d( 0.276393, -0.850651, 0.447214),
-            new Point3d( 0.723607, 0.525731, -0.447214),
-            new Point3d( -0.276393, 0.850651, -0.447214),
-            new Point3d( -0.894427, 0, -0.447214),
-            new Point3d( -0.276393, -0.850651, -0.447214),
-            new Point3d( 0.723607, -0.525731, -0.447214),
-            new Point3d( 0, 0, -1)};
+        // search icosahedron for isovalue detection - common to all AgentPlanes and constant so it is declared static and readonly
+        static readonly Vector3d[] SearchIcosahedron = {
+            new Vector3d( 0, 0, 1), new Vector3d(0.894427, 0, 0.447214), new Vector3d(0.276393, 0.850651, 0.447214),
+            new Vector3d( -0.723607, 0.525731, 0.447214), new Vector3d( -0.723607, -0.525731, 0.447214),
+            new Vector3d( 0.276393, -0.850651, 0.447214), new Vector3d( 0.723607, 0.525731, -0.447214),
+            new Vector3d( -0.276393, 0.850651, -0.447214), new Vector3d( -0.894427, 0, -0.447214),
+            new Vector3d( -0.276393, -0.850651, -0.447214), new Vector3d( 0.723607, -0.525731, -0.447214), new Vector3d( 0, 0, -1)};
 
         // constructor
-        public AgentPlane(Point3d O, Vector3d dirX, AgentPlaneSimulation agentSim)
+        public AgentPlane(Point3d O, Vector3d X, AgentPlaneSimulation agentSim)
         {
             this.O = O;
-            dirX.Unitize();
-            this.X = dirX;
+            X.Unitize();
+            this.X = X;
             this.agentSim = agentSim;
+            Vector3d oV = new Vector3d(O);
+            oV.Unitize();
+            Y = Vector3d.CrossProduct(X, oV);
             neighbours = new List<AgentPlane>();
         }
         // methods
 
-        public void Update(double maxForce)
+        public void Update()
         {
             // update position
-            O += desPos * maxForce;
-            // update direction
-            X = X * (1 - maxForce) + maxForce * desDir;
+            O += desPos * agentSim.maxForce;
+            // update X direction
+            X = X * (1 - agentSim.maxForce) + agentSim.maxForce * desDirX;
             X.Unitize();
+            // update Y direction
+            Y = Y * (1 - agentSim.maxForce) + agentSim.maxForce * desDirY;
+            Y.Unitize();
         }
 
         public void ResetDesireds()
         {
-            desDir = Vector3d.Zero;
+            desDirX = Vector3d.Zero;
+            desDirY = Vector3d.Zero;
             desPos = Vector3d.Zero;
         }
 
@@ -371,38 +332,43 @@ public class Script_Instance : GH_ScriptInstance
             if (neighbours.Count != 0)
             {
                 // define flocking vectors
-                Vector3d align = Vector3d.Zero;
+                Vector3d alignX = Vector3d.Zero;
+                Vector3d alignY = Vector3d.Zero;
                 Vector3d cohesion = Vector3d.Zero;
                 Vector3d separation = Vector3d.Zero;
-                Vector3d pointer = Vector3d.Zero;
+                Vector3d pointer;
+
                 int sepCount = 0;
-                double sepDistSq = 4 * agentSim.planeRadius * agentSim.planeRadius; // the square of 2*plane radius
-                double distSq;
+                double distanceSquared;
+                double invNCount = 1.0 / neighbours.Count;
 
                 // neighbours calculations
                 foreach (AgentPlane neighbour in neighbours)
                 {
-                    align += neighbour.X;
-                    pointer = (Vector3d)Point3d.Subtract(neighbour.O, O);
+                    alignX += neighbour.X;
+                    alignY += neighbour.Y;
+                    pointer = neighbour.O - O;
                     cohesion += pointer;
-                    distSq = O.DistanceToSquared(neighbour.O);
-                    if (distSq < sepDistSq)
+                    distanceSquared = O.DistanceToSquared(neighbour.O);
+                    if (distanceSquared < agentSim.sepDistSquared)
                     {
                         // separation vector is bigger when closer to another agent
-                        separation += -pointer * (sepDistSq - distSq);
+                        separation += -pointer * (agentSim.sepDistSquared - distanceSquared);
                         sepCount++;
                     }
                 }
 
                 // ............................ alignment behavior
-                align /= neighbours.Count;
+                alignX *= invNCount;
+                alignY *= invNCount;
 
                 // updates desired direction
                 // multiplies alignment vector by alignment intensity factor
-                desDir += agentSim.alignmentIntensity * align;
+                desDirX += agentSim.alignmentIntensity * alignX;
+                desDirY += agentSim.alignmentIntensity * alignY;
 
                 // ............................ cohesion behavior
-                cohesion /= neighbours.Count;
+                cohesion *= invNCount;
 
                 // updates desired position
                 // multiplies cohesion vector by cohesion intensity factor
@@ -421,27 +387,27 @@ public class Script_Instance : GH_ScriptInstance
 
         }
 
-        public void ComputeDesiredIsoValue(float isoValue, double perlNoiseScale, double perlNoiseTime)
+        public void ComputeDesiredIsoValue()
         {
             float fieldVal, diff, minDiff; // prepare variables
 
-            currentFieldVal = Noise.Generate((float)(O.X * perlNoiseScale + perlNoiseTime),
-                (float)(O.Y * perlNoiseScale + perlNoiseTime),
-                (float)(O.Z * perlNoiseScale + perlNoiseTime));// field value at current positions
+            currentFieldVal = Noise.Generate((float)(O.X * agentSim.simplexNoiseScale + agentSim.simplexNoiseTime),
+                (float)(O.Y * agentSim.simplexNoiseScale + agentSim.simplexNoiseTime),
+                (float)(O.Z * agentSim.simplexNoiseScale + agentSim.simplexNoiseTime));// field value at current positions
 
-            minDiff = Math.Abs(currentFieldVal - isoValue); // update current distance from iso value
+            minDiff = Math.Abs(currentFieldVal - agentSim.isoValue); // update current distance from iso value
 
-            Point3d target = O;// if no value is within the difference range, the target is the actual position
+            Point3d target = O;// if no value is within the difference range, the target is the current position
 
             if (minDiff > agentSim.isoValueTol)
             {
                 for (int i = 0; i < SearchIcosahedron.Length; i++)
                 {
-                    Point3d sample = O + SearchIcosahedron[i] * agentSim.planeRadius;
-                    fieldVal = Noise.Generate((float)(sample.X * perlNoiseScale + perlNoiseTime),
-                        (float)(sample.Y * perlNoiseScale + perlNoiseTime),
-                        (float)(sample.Z * perlNoiseScale + perlNoiseTime));
-                    diff = Math.Abs(fieldVal - isoValue);
+                    Point3f sample = (Point3f)(O + SearchIcosahedron[i] * agentSim.planeRadius);
+                    fieldVal = Noise.Generate(sample.X * agentSim.simplexNoiseScale + agentSim.simplexNoiseTime,
+                        sample.Y * agentSim.simplexNoiseScale + agentSim.simplexNoiseTime,
+                        sample.Z * agentSim.simplexNoiseScale + agentSim.simplexNoiseTime);
+                    diff = Math.Abs(fieldVal - agentSim.isoValue);
                     if (diff < minDiff)
                     {
                         minDiff = diff;
@@ -453,41 +419,33 @@ public class Script_Instance : GH_ScriptInstance
             desPos += (target - O) * agentSim.isoValIntensity;
         }
 
+        public void ComputeCurlNoiseAlign()
+        {
+            // curl noise vector
+            Vector3d curlNoiseVector;
+            curlNoiseVector = CurlNoise.CurlNoiseVector(O, agentSim.curlNoiseScale, agentSim.curlNoiseTime, true);
+            curlNoiseVector.Unitize();
+            ComputeFieldAlign(curlNoiseVector);
+        }
+
+        /// <summary>
+        /// This is a more generic function to allow the agent plane system to interact with more than one vector field.
+        /// </summary>
+        /// <param name="fieldVector">The Vector the agent interacts with</param>
         public void ComputeFieldAlign(Vector3d fieldVector)
         {
-            desDir += fieldVector * agentSim.fieldIntensity;
+            desDirX += fieldVector * agentSim.fieldIntensity;
         }
 
-        public void AlignWithVector(Vector3d vector, double intensity)
-        {
-            X = X * (1 - intensity) + vector * intensity;
-            X.Unitize();
-        }
 
-        public Plane PlaneOut()
+        public Plane ExtractPlane()
         {
-            Vector3d oV = new Vector3d(O);
-            oV.Unitize();
-            this.Y = Vector3d.CrossProduct(X, oV);
+            //Vector3d oV = new Vector3d(O);
+            //oV.Unitize();
+            //Y = Vector3d.CrossProduct(X, oV);
             return new Plane(O, X, Y);
         }
 
-        public GH_Mesh MeshOut(double rad)
-        {
-            Plane pl = PlaneOut();
-            Transform x = Transform.PlaneToPlane(Plane.WorldXY, pl);
-
-            Mesh m = new Mesh();
-            Point3d[] verts = new Point3d[] { new Point3d(-1, -1, 0), new Point3d(1, -1, 0), new Point3d(1, 1, 0), new Point3d(-1, 1, 0) };
-            m.Vertices.AddVertices(verts);
-            m.Faces.AddFace(0, 1, 2, 3);
-            m.Scale(rad);
-            m.Transform(x);
-            m.Normals.ComputeNormals();
-
-            GH_Mesh m1 = new GH_Mesh(m);
-            return m1;
-        }
     }
 
     // .................................................................. Utilities 
